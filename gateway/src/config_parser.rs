@@ -321,14 +321,14 @@ impl TryFrom<toml::Table> for UninitializedConfig {
     type Error = Error;
 
     fn try_from(table: toml::Table) -> Result<Self, Self::Error> {
-        // NOTE: We'd like to use `serde_path_to_error` here but it has a bug with enums:
-        //       https://github.com/dtolnay/path-to-error/issues/1
-        match table.try_into() {
-            Ok(config) => Ok(config),
-            Err(e) => Err(Error::new(ErrorDetails::Config {
-                message: format!("{e}"),
-            })),
-        }
+        use serde::de::IntoDeserializer;
+        let deser = table.into_deserializer();
+        let res: Result<UninitializedConfig, _> = serde_path_to_error::deserialize(deser);
+        res.map_err(|e| {
+            Error::new(ErrorDetails::Config {
+                message: format!("{} @ {}", e.clone().into_inner(), e.path()),
+            })
+        })
     }
 }
 
